@@ -2,13 +2,22 @@ import pandas as pd
 
 def find_up_down_runs(close: pd.Series):
     """
-    Close-to-close changes:
-      - Up day: diff > 0
-      - Down day: diff < 0
-      - Flat/NaN breaks a run
+    Identify consecutive up/down price runs (streaks).
+    
+    Features:
+        - Groups consecutive upward movements into up runs
+        - Groups consecutive downward movements into down runs
+        - Computes run statistics (start, end, length)
+        - Flat days and NaN values break runs
+    
+    Args:
+        close: Closing prices with datetime index
+    
     Returns:
-      runs: list of dicts {start, end, direction, length}
-      summary: dict with counts, totals, longest for up/down
+        tuple: (runs, summary)
+            - runs: List[dict] with 'start', 'end', 'direction', 'length'
+            - summary: dict with 'up' and 'down' stats
+                - num_runs, total_days_in_runs, longest_streak for each
     """
     diff = close.diff()
     runs = []

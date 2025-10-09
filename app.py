@@ -7,9 +7,8 @@ import numpy as np
 import plotly.graph_objects as go
 
 from core.data import get_numeric_close
-from core.indicators import sma_sliding_window, daily_simple_returns
+from core.indicators import sma_sliding_window, daily_simple_returns, max_profit_multiple_transactions
 from core.runs import find_up_down_runs
-from core.strategy import max_profit_multiple_transactions
 
 # -----------------------------
 # Sidebar controls

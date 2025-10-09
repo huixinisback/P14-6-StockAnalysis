@@ -1,13 +1,28 @@
-import pandas as pd
-import yfinance as yf
+import pandas as pd # using pandas for data manipulation
+import yfinance as yf  # using yahoo finance API
 
 def get_numeric_close(ticker: str, period: str, interval: str) -> pd.Series:
     """
-    Downloads with yfinance and returns a numeric Close price Series for `ticker`.
-    Handles single/multi-index columns and coerces to numeric.
+    Download stock closing prices from Yahoo Finance.
+    
+    Features:
+        - Fetches historical data via yfinance
+        - Handles single/multi-ticker formats
+        - Returns numeric series with datetime index
+    
+    Args:
+        ticker: Stock symbol (e.g., 'AAPL')
+        period: Time period ('1y', '2y', '3y', '5y', 'max')
+        interval: Data frequency ('1d', '1wk', '1mo')
+    
+    Returns:
+        pd.Series: Closing prices, sorted by date
+        
+    Raises:
+        ValueError: No data returned or Close column missing
     """
     df = yf.download(
-        tickers=ticker,          # pass a string, not a list
+        tickers=ticker,          # pass a string for single ticker
         period=period,
         interval=interval,
         auto_adjust=False,

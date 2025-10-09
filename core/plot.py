@@ -1,27 +1,102 @@
+"""
+Main plotting module - orchestrates all plotting functionality.
+Maintains global state and re-exports functions from specialized modules.
+"""
+
 import matplotlib.pyplot as plt
 import pandas as pd
-from typing import List, Dict
+from typing import Dict, Optional
 
-def plot_price_sma_and_runs(df: pd.DataFrame, sma_col: str, runs: List[Dict], title: str):
-    """
-    - Line plot: Close and SMA
-    - Shaded regions for up/down runs (green/red)
-    """
-    close = df["Close"]
-    sma = df[sma_col]
+# ===================== Global State =====================
+# Shared across all plotting modules
+lines = {}  # all lines plotted
+indicators = {}  # calculated indicators per stock: indicators[ticker][indicator_name] = data
+controls: Dict[str, object] = {}
+fig = None
+ax = None
+current_data: Optional[pd.DataFrame] = None
+current_ticker: Optional[str] = None
 
-    fig, ax = plt.subplots(figsize=(11, 6))
-    ax.plot(close.index, close.values, label="Close")
-    ax.plot(sma.index, sma.values, label=sma_col)
+# ===================== Import from Submodules =====================
 
-    for r in runs:
-        color = "green" if r["direction"] == "up" else "red"
-        ax.axvspan(r["start"], r["end"], alpha=0.15, color=color)
+# Basic static plots
+from .plot_basic import (
+    plot_price_sma_and_runs,
+    plot_multiple_stocks_comparison
+)
 
-    ax.set_title(title)
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
-    ax.legend()
-    ax.grid(True, linestyle="--", alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+# Indicator functions
+from .plot_indicators import (
+    calculate_all_indicators,
+    remove_indicator_for_all_stocks,
+    plot_sma_for_all_stocks,
+    plot_ema_for_all_stocks,
+    plot_rsi_for_all_stocks,
+    plot_bollinger_for_all_stocks
+)
+
+# Analysis visualizations
+from .plot_analysis import (
+    plot_runs_for_all_stocks,
+    plot_runs_popup,
+    plot_buysell_signals_for_all_stocks
+)
+
+# Interactive plot core
+from .plot_interactive import (
+    create_interactive_plot,
+    create_controls,
+    plot_initial_data,
+    update_plot_properties,
+    on_mode_change,
+    handle_stock_input,
+    add_stock,
+    remove_stock,
+    on_checkbox_change,
+    auto_scale_y_axis,
+    auto_resize_figure
+)
+
+# ===================== Re-export All Functions =====================
+# This allows other modules to import from core.plot as before
+
+__all__ = [
+    # Global state
+    'lines',
+    'indicators',
+    'controls',
+    'fig',
+    'ax',
+    'current_data',
+    'current_ticker',
+    
+    # Basic plots
+    'plot_price_sma_and_runs',
+    'plot_multiple_stocks_comparison',
+    
+    # Indicator functions
+    'calculate_all_indicators',
+    'remove_indicator_for_all_stocks',
+    'plot_sma_for_all_stocks',
+    'plot_ema_for_all_stocks',
+    'plot_rsi_for_all_stocks',
+    'plot_bollinger_for_all_stocks',
+    
+    # Analysis
+    'plot_runs_for_all_stocks',
+    'plot_runs_popup',
+    'plot_buysell_signals_for_all_stocks',
+    
+    # Interactive plot
+    'create_interactive_plot',
+    'create_controls',
+    'plot_initial_data',
+    'update_plot_properties',
+    'on_mode_change',
+    'handle_stock_input',
+    'add_stock',
+    'remove_stock',
+    'on_checkbox_change',
+    'auto_scale_y_axis',
+    'auto_resize_figure',
+]
