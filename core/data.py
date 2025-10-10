@@ -34,11 +34,11 @@ def get_numeric_close(ticker: str, period: str, interval: str) -> pd.Series:
     if df is None or df.empty:
         raise ValueError("No data returned from yfinance.")
 
-    # Case A: standard single-ticker columns
+    # Standard single-ticker columns
     if "Close" in df.columns and not isinstance(df.columns, pd.MultiIndex):
         close = df["Close"]
 
-    # Case B: multi-index (e.g., multiple tickers)
+    # Multi-index format (multiple tickers)
     elif isinstance(df.columns, pd.MultiIndex):
         if ("Close", ticker) in df.columns:
             close = df[("Close", ticker)]
@@ -48,7 +48,7 @@ def get_numeric_close(ticker: str, period: str, interval: str) -> pd.Series:
                 raise ValueError(f"'Close' level not found in multi-index columns: {df.columns}")
             close = df[close_cols[0]]
 
-    # Rare fallback
+    # Fallback: Series or Adj Close
     elif isinstance(df, pd.Series):
         close = df
     else:
@@ -57,7 +57,7 @@ def get_numeric_close(ticker: str, period: str, interval: str) -> pd.Series:
         else:
             raise ValueError(f"Could not locate a 'Close' column. Columns: {df.columns}")
 
-    # Clean
+    # Normalize data
     close = close.copy()
     close.index = pd.to_datetime(close.index)
     close = close.sort_index()

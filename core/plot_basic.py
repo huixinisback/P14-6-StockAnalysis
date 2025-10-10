@@ -42,7 +42,6 @@ def plot_price_sma_and_runs(df: pd.DataFrame, sma_col: str, runs: List[Dict], ti
     plt.tight_layout()
     plt.show()
 
-
 def plot_multiple_stocks_comparison(stock_data_list: List[Dict], title: str = "Stock Comparison"):
     """
     Compare multiple stocks on single plot.
@@ -83,4 +82,5 @@ def plot_multiple_stocks_comparison(stock_data_list: List[Dict], title: str = "S
     ax_local.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
     plt.tight_layout()
     plt.show()
+
 

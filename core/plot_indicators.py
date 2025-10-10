@@ -44,19 +44,18 @@ def calculate_all_indicators(close_prices: pd.Series, ticker: str, sma_window: i
     Effects:
         Updates plot.indicators global dict
     """
-    from . import plot  # Import to access global indicators dict
+    from . import plot
     
-    # Initialize ticker's indicator dict if it doesn't exist
     if ticker not in plot.indicators:
         plot.indicators[ticker] = {}
     
-    # Calculate standard SMAs
+    # Standard SMAs: 5, 10, 20, 50
     plot.indicators[ticker]["SMA_5"] = sma_sliding_window(close_prices, 5)
     plot.indicators[ticker]["SMA_10"] = sma_sliding_window(close_prices, 10)
     plot.indicators[ticker]["SMA_20"] = sma_sliding_window(close_prices, 20)
     plot.indicators[ticker]["SMA_50"] = sma_sliding_window(close_prices, 50)
     
-    # Calculate custom SMA window if different from standard ones
+    # Add custom SMA window if non-standard
     if sma_window not in [5, 10, 20, 50]:
         plot.indicators[ticker][f"SMA_{sma_window}"] = sma_sliding_window(close_prices, sma_window)
     plot.indicators[ticker]["EMA_12"] = exponential_moving_average(close_prices, period=12)
@@ -68,31 +67,51 @@ def calculate_all_indicators(close_prices: pd.Series, ticker: str, sma_window: i
     plot.indicators[ticker]["BB_Middle"] = bb_middle
     plot.indicators[ticker]["BB_Lower"] = bb_lower
     
-    # Calculate SMA Crossover signals using the specified SMA window
+    # Buy/Sell signals from SMA crossover
     sma_key = f"SMA_{sma_window}"
     if sma_key not in plot.indicators[ticker]:
-        # Should have been calculated above, but add safety check
         plot.indicators[ticker][sma_key] = sma_sliding_window(close_prices, sma_window)
     
     sma_for_signals = plot.indicators[ticker][sma_key]
-    
-    # Convert Series to numpy arrays for the refined algorithm
     prices_array = close_prices.values
     sma_array = sma_for_signals.values
-    
-    # Compute signals using refined algorithm
     signals_dict = compute_buy_sell_signals(prices_array, sma_array)
     
-    # Store the signals dictionary with index information
+    # Calculate signal statistics
+    buy_prices_list = signals_dict['buy_prices']
+    sell_prices_list = signals_dict['sell_prices']
+    num_completed = min(len(buy_prices_list), len(sell_prices_list))
+    
+    total_profit = 0.0
+    winning_trades = 0
+    losing_trades = 0
+    
+    for i in range(num_completed):
+        profit = sell_prices_list[i] - buy_prices_list[i]
+        total_profit += profit
+        if profit > 0:
+            winning_trades += 1
+        elif profit < 0:
+            losing_trades += 1
+    
+    # Win factor: ratio of winning to losing trades
+    win_factor = winning_trades / losing_trades if losing_trades > 0 else (winning_trades if winning_trades > 0 else 0)
+    
+    # Store signals with metadata and statistics
     plot.indicators[ticker]["Buy_Sell_Signals"] = signals_dict
-    plot.indicators[ticker]["Price_Index"] = close_prices.index  # Store index for plotting
-    plot.indicators[ticker]["SMA_Window_Used"] = sma_window  # Store which window was used
+    plot.indicators[ticker]["Price_Index"] = close_prices.index
+    plot.indicators[ticker]["SMA_Window_Used"] = sma_window
+    plot.indicators[ticker]["Signal_Total_Profit"] = total_profit
+    plot.indicators[ticker]["Signal_Win_Factor"] = win_factor
+    plot.indicators[ticker]["Signal_Winning_Trades"] = winning_trades
+    plot.indicators[ticker]["Signal_Losing_Trades"] = losing_trades
     
-    # Calculate maximum profit from multiple transactions
-    max_profit = max_profit_multiple_transactions(close_prices)
+    # Max profit (greedy algorithm) with transaction details
+    max_profit, max_profit_transactions = max_profit_multiple_transactions(close_prices, return_transactions=True)
     plot.indicators[ticker]["Max_Profit"] = max_profit
+    plot.indicators[ticker]["Max_Profit_Transactions"] = max_profit_transactions
     
-    # Calculate runs (up/down streaks)
+    # Runs analysis
     runs, runs_summary = find_up_down_runs(close_prices)
     plot.indicators[ticker]["Runs"] = runs
     plot.indicators[ticker]["Runs_Summary"] = runs_summary
@@ -118,13 +137,13 @@ def remove_indicator_for_all_stocks(indicator_key):
     Effects:
         Removes lines, refreshes canvas (RSI: removes secondary y-axis)
     """
-    from . import plot  # Import to access global state
+    from . import plot
     
-    # Special handling for RSI - need to remove the entire secondary axis
+    # RSI: remove entire secondary axis
     if indicator_key == "RSI_14" and "RSI_Axis" in plot.lines:
         rsi_axis = plot.lines["RSI_Axis"]
         
-        # Remove all RSI lines from the axis
+        # Clear all RSI lines first
         rsi_keys = [k for k in list(plot.lines.keys()) if k.startswith("RSI_")]
         for key in rsi_keys:
             if key != "RSI_Axis":
@@ -137,7 +156,7 @@ def remove_indicator_for_all_stocks(indicator_key):
                 if key in plot.lines:
                     del plot.lines[key]
         
-        # Remove the entire RSI axis (this removes all lines and markings on it)
+        # Remove secondary axis
         try:
             rsi_axis.remove()
         except:
@@ -145,20 +164,20 @@ def remove_indicator_for_all_stocks(indicator_key):
         if "RSI_Axis" in plot.lines:
             del plot.lines["RSI_Axis"]
     
-    # Standard removal for other indicators
+    # Standard indicator removal
     keys_to_remove = [key for key in list(plot.lines.keys()) if indicator_key in key]
     for key in keys_to_remove:
         obj = plot.lines.get(key)
         if obj is None:
             continue
         try:
-            if isinstance(obj, list):  # Fill areas
+            if isinstance(obj, list):  # Fill collections
                 for item in obj:
                     item.remove()
             else:
                 obj.remove()
         except Exception:
-            pass  # Silently skip removal errors
+            pass
         
         if key in plot.lines:
             del plot.lines[key]
@@ -189,7 +208,7 @@ def plot_sma_for_all_stocks(period):
     """
     from . import plot
     
-    # Remove any existing SMA lines for this period
+    # Clear existing SMA lines for this period
     keys_to_remove = [k for k in plot.lines.keys() if k.startswith(f"SMA_{period}_")]
     for key in keys_to_remove:
         plot.lines[key].remove()
@@ -198,19 +217,17 @@ def plot_sma_for_all_stocks(period):
     color_cycle = plt.cm.tab10.colors
     idx = 0
     
-    # Plot SMA for each stock
+    # Plot SMA for each active stock
     for stock_key in [k for k in plot.lines if k.endswith("_Close")]:
         stock_name = stock_key.replace("_Close", "")
         
-        # Check if this stock has indicators calculated
         if stock_name not in plot.indicators or f"SMA_{period}" not in plot.indicators[stock_name]:
             continue
         
         data = plot.indicators[stock_name][f"SMA_{period}"]
         
-        # Filter to current_data period to avoid axis shift
+        # Filter to visible date range
         if plot.current_data is not None and len(plot.current_data) > 0:
-            # Use loc to filter by matching indices directly
             data = data.loc[data.index.isin(plot.current_data.index)]
         
         if len(data) == 0:
@@ -248,7 +265,7 @@ def plot_ema_for_all_stocks(period):
     """
     from . import plot
     
-    # Remove any existing EMA lines for this period
+    # Clear existing EMA lines for this period
     keys_to_remove = [k for k in plot.lines.keys() if k.startswith(f"EMA_{period}_")]
     for key in keys_to_remove:
         plot.lines[key].remove()
@@ -257,19 +274,17 @@ def plot_ema_for_all_stocks(period):
     color_cycle = plt.cm.Set2.colors
     idx = 0
     
-    # Plot EMA for each stock
+    # Plot EMA for each active stock
     for stock_key in [k for k in plot.lines if k.endswith("_Close")]:
         stock_name = stock_key.replace("_Close", "")
         
-        # Check if this stock has indicators calculated
         if stock_name not in plot.indicators or f"EMA_{period}" not in plot.indicators[stock_name]:
             continue
         
         data = plot.indicators[stock_name][f"EMA_{period}"]
         
-        # Filter to current_data period to avoid axis shift
+        # Filter to visible date range
         if plot.current_data is not None and len(plot.current_data) > 0:
-            # Use loc to filter by matching indices directly
             data = data.loc[data.index.isin(plot.current_data.index)]
         
         if len(data) == 0:
@@ -307,13 +322,13 @@ def plot_rsi_for_all_stocks():
     """
     from . import plot
     
-    # Remove any existing RSI lines
+    # Clear existing RSI lines
     keys_to_remove = [k for k in plot.lines.keys() if k.startswith("RSI_14_")]
     for key in keys_to_remove:
         plot.lines[key].remove()
         del plot.lines[key]
     
-    # Create RSI axis if it doesn't exist
+    # Create secondary y-axis for RSI if needed
     if "RSI_Axis" not in plot.lines:
         ax_rsi = plot.ax.twinx()
         ax_rsi.set_ylabel("RSI", color='red')
@@ -328,19 +343,17 @@ def plot_rsi_for_all_stocks():
     color_cycle = ['red', 'orange', 'purple', 'brown', 'pink']
     idx = 0
     
-    # Plot RSI for each stock
+    # Plot RSI for each active stock
     for stock_key in [k for k in plot.lines if k.endswith("_Close")]:
         stock_name = stock_key.replace("_Close", "")
         
-        # Check if this stock has RSI calculated
         if stock_name not in plot.indicators or "RSI_14" not in plot.indicators[stock_name]:
             continue
         
         data = plot.indicators[stock_name]["RSI_14"]
         
-        # Filter to current_data period to avoid axis shift
+        # Filter to visible date range
         if plot.current_data is not None and len(plot.current_data) > 0:
-            # Use loc to filter by matching indices directly
             data = data.loc[data.index.isin(plot.current_data.index)]
         
         if len(data) == 0:
@@ -378,29 +391,27 @@ def plot_bollinger_for_all_stocks():
     """
     from . import plot
     
-    # Remove any existing Bollinger Band lines
+    # Clear existing Bollinger Band lines
     keys_to_remove = [k for k in plot.lines.keys() if k.startswith("BB_")]
     for key in keys_to_remove:
         try:
-            if isinstance(plot.lines[key], list):  # Fill areas return collection
+            if isinstance(plot.lines[key], list):
                 for item in plot.lines[key]:
                     item.remove()
             else:
                 plot.lines[key].remove()
             del plot.lines[key]
         except Exception:
-            pass  # Silently skip removal errors
+            pass
     
     color_cycle = plt.cm.tab10.colors
     idx = 0
     
-    # Plot Bollinger Bands for each stock
     stock_keys = [k for k in plot.lines if k.endswith("_Close")]
     
     for stock_key in stock_keys:
         stock_name = stock_key.replace("_Close", "")
         
-        # Check if this stock has Bollinger Bands calculated
         if stock_name not in plot.indicators:
             continue
         
@@ -415,7 +426,6 @@ def plot_bollinger_for_all_stocks():
         middle = plot.indicators[stock_name]["BB_Middle"]
         lower = plot.indicators[stock_name]["BB_Lower"]
         
-        # Don't filter - just plot as-is since BB is calculated from the same data
         if len(upper) == 0 or len(middle) == 0 or len(lower) == 0:
             continue
         
@@ -437,7 +447,7 @@ def plot_bollinger_for_all_stocks():
             plot.lines[f"BB_Lower_{stock_name}"] = ll
             plot.lines[f"BB_Fill_{stock_name}"] = [fill]
         except Exception:
-            pass  # Silently skip plotting errors
+            pass
     plot.update_plot_properties()
     if plot.fig is not None:
         plot.fig.canvas.draw_idle()

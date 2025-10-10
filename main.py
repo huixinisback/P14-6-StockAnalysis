@@ -3,8 +3,7 @@ from core.data import get_numeric_close
 from core.indicators import sma_sliding_window, daily_simple_returns, max_profit_multiple_transactions
 from core.runs import find_up_down_runs
 from core.plot import (
-    plot_price_sma_and_runs, 
-    plot_multiple_stocks_comparison,
+    plot_price_sma_and_runs,
     create_interactive_plot
 )
 
@@ -22,7 +21,7 @@ def print_analysis_results(ticker: str, period: str, interval: str, close_prices
     print(f"Total Data Points: {len(close_prices)}")
     print(f"Latest Price: ${close_prices.iloc[-1]:.2f}")
     
-    # SMA Analysis - use the window that was used for signals
+    # SMA window used for signals
     sma_window_used = indicators_dict.get("SMA_Window_Used", 20)
     sma_key = f"SMA_{sma_window_used}"
     sma_data = indicators_dict.get(sma_key)
@@ -68,7 +67,7 @@ def print_analysis_results(ticker: str, period: str, interval: str, close_prices
             current_direction = direction
             current_run_length = 1
     
-    # Don't forget last run
+    # Append final run
     if current_direction == "up":
         runs_up.append(current_run_length)
     elif current_direction == "down":
@@ -84,9 +83,41 @@ def print_analysis_results(ticker: str, period: str, interval: str, close_prices
     print(f"   Longest Upward Streak: {longest_up} consecutive days")
     print(f"   Longest Downward Streak: {longest_down} consecutive days")
     
+    # Get price dates for transaction display
+    price_dates = close_prices.index
+    
     # Max Profit
     max_profit = indicators_dict.get("Max_Profit", 0.0)
+    max_profit_transactions = indicators_dict.get("Max_Profit_Transactions", [])
+    
     print(f"\n💰 Max Profit Potential (multiple transactions): ${max_profit:.2f}")
+    print(f"   Total Transactions: {len(max_profit_transactions)}")
+    
+    if len(max_profit_transactions) > 0:
+        # First 5 transactions
+        print(f"\n   First {min(5, len(max_profit_transactions))} Transactions:")
+        print(f"   {'#':<4} {'Buy Date':<12} {'Buy Price':<12} {'Sell Date':<12} {'Sell Price':<12} {'Profit':<12}")
+        print(f"   {'-'*68}")
+        for i in range(min(5, len(max_profit_transactions))):
+            txn = max_profit_transactions[i]
+            buy_idx = txn['buy_index']
+            sell_idx = txn['sell_index']
+            buy_date = close_prices.index[buy_idx].strftime('%Y-%m-%d') if buy_idx < len(close_prices) else 'N/A'
+            sell_date = close_prices.index[sell_idx].strftime('%Y-%m-%d') if sell_idx < len(close_prices) else 'N/A'
+            print(f"   {i+1:<4} {buy_date:<12} ${txn['buy_price']:<11.2f} {sell_date:<12} ${txn['sell_price']:<11.2f} ${txn['profit']:<11.2f}")
+        
+        # Last 5 transactions (if more than 5)
+        if len(max_profit_transactions) > 5:
+            print(f"\n   Last {min(5, len(max_profit_transactions))} Transactions:")
+            print(f"   {'#':<4} {'Buy Date':<12} {'Buy Price':<12} {'Sell Date':<12} {'Sell Price':<12} {'Profit':<12}")
+            print(f"   {'-'*68}")
+            for i in range(max(0, len(max_profit_transactions)-5), len(max_profit_transactions)):
+                txn = max_profit_transactions[i]
+                buy_idx = txn['buy_index']
+                sell_idx = txn['sell_index']
+                buy_date = close_prices.index[buy_idx].strftime('%Y-%m-%d') if buy_idx < len(close_prices) else 'N/A'
+                sell_date = close_prices.index[sell_idx].strftime('%Y-%m-%d') if sell_idx < len(close_prices) else 'N/A'
+                print(f"   {i+1:<4} {buy_date:<12} ${txn['buy_price']:<11.2f} {sell_date:<12} ${txn['sell_price']:<11.2f} ${txn['profit']:<11.2f}")
     
     # Buy/Sell Signals
     signals_dict = indicators_dict.get("Buy_Sell_Signals", {})
@@ -95,24 +126,60 @@ def print_analysis_results(ticker: str, period: str, interval: str, close_prices
     buy_prices = signals_dict.get('buy_prices', [])
     sell_prices = signals_dict.get('sell_prices', [])
     
+    # Get signal statistics
+    signal_total_profit = indicators_dict.get("Signal_Total_Profit", 0.0)
+    signal_win_factor = indicators_dict.get("Signal_Win_Factor", 0.0)
+    winning_trades = indicators_dict.get("Signal_Winning_Trades", 0)
+    losing_trades = indicators_dict.get("Signal_Losing_Trades", 0)
+    
     print(f"\n🔔 Buy/Sell Signals:")
-    print(f"   Buy Signals: {len(buy_indices)}")
-    print(f"   Sell Signals: {len(sell_indices)}")
+    print(f"   Total Buy Signals: {len(buy_indices)}")
+    print(f"   Total Sell Signals: {len(sell_indices)}")
+    print(f"   Total Profit (from completed trades): ${signal_total_profit:.2f}")
+    print(f"   Win Factor: {signal_win_factor:.2f} ({winning_trades}W / {losing_trades}L)")
     
-    if len(buy_indices) > 0 and len(buy_prices) > 0:
-        first_buy_idx = buy_indices[0]
-        first_buy_price = buy_prices[0]
-        print(f"   First Buy: ${first_buy_price:.2f} on day {first_buy_idx}")
+    num_buys = len(buy_indices)
     
-    if len(sell_indices) > 0 and len(sell_prices) > 0:
-        first_sell_idx = sell_indices[0]
-        first_sell_price = sell_prices[0]
-        print(f"   First Sell: ${first_sell_price:.2f} on day {first_sell_idx}")
+    if num_buys > 0:
+        # First 5 transactions
+        print(f"\n   First {min(5, num_buys)} Transactions:")
+        print(f"   {'#':<4} {'Buy Date':<12} {'Buy Price':<12} {'Sell Date':<12} {'Sell Price':<12} {'Profit':<12}")
+        print(f"   {'-'*68}")
+        for i in range(min(5, num_buys)):
+            buy_idx = buy_indices[i]
+            buy_date = close_prices.index[buy_idx].strftime('%Y-%m-%d') if buy_idx < len(close_prices) else 'N/A'
+            
+            if i < len(sell_indices):
+                sell_idx = sell_indices[i]
+                sell_date = close_prices.index[sell_idx].strftime('%Y-%m-%d') if sell_idx < len(close_prices) else 'N/A'
+                sell_price_val = sell_prices[i]
+                profit = sell_price_val - buy_prices[i]
+                print(f"   {i+1:<4} {buy_date:<12} ${buy_prices[i]:<11.2f} {sell_date:<12} ${sell_price_val:<11.2f} ${profit:<11.2f}")
+            else:
+                print(f"   {i+1:<4} {buy_date:<12} ${buy_prices[i]:<11.2f} {'-':<12} {'-':<12} {'(ongoing)':<12}")
+        
+        # Last 5 transactions (if more than 5)
+        if num_buys > 5:
+            print(f"\n   Last {min(5, num_buys)} Transactions:")
+            print(f"   {'#':<4} {'Buy Date':<12} {'Buy Price':<12} {'Sell Date':<12} {'Sell Price':<12} {'Profit':<12}")
+            print(f"   {'-'*68}")
+            for i in range(max(0, num_buys-5), num_buys):
+                buy_idx = buy_indices[i]
+                buy_date = close_prices.index[buy_idx].strftime('%Y-%m-%d') if buy_idx < len(close_prices) else 'N/A'
+                
+                if i < len(sell_indices):
+                    sell_idx = sell_indices[i]
+                    sell_date = close_prices.index[sell_idx].strftime('%Y-%m-%d') if sell_idx < len(close_prices) else 'N/A'
+                    sell_price_val = sell_prices[i]
+                    profit = sell_price_val - buy_prices[i]
+                    print(f"   {i+1:<4} {buy_date:<12} ${buy_prices[i]:<11.2f} {sell_date:<12} ${sell_price_val:<11.2f} ${profit:<11.2f}")
+                else:
+                    print(f"   {i+1:<4} {buy_date:<12} ${buy_prices[i]:<11.2f} {'-':<12} {'-':<12} {'(ongoing)':<12}")
     
     print("="*60 + "\n")
 
 
-# -------- User Input --------
+# User Configuration
 print("\n" + "="*60)
 print("STOCK ANALYSIS CONFIGURATION")
 print("="*60)
@@ -121,7 +188,7 @@ TICKER = input("Enter stock ticker symbol (e.g., AAPL) [default: AAPL]: ").strip
 PERIOD = input("Enter period (1y, 2y, 3y, 5y) [default: 3y]: ").strip() or "3y"
 INTERVAL = input("Enter interval (1d, 1wk, 1mo) [default: 1d]: ").strip() or "1d"
 
-# SMA Window with validation
+# SMA window with validation
 sma_input = input("Enter SMA window size (1-200) [default: 5]: ").strip()
 try:
     SMA_WINDOW = int(sma_input) if sma_input else 5
@@ -137,28 +204,27 @@ print("="*60 + "\n")
 
 def run_basic_analysis(ticker=None, period=None, interval=None, sma_window=None):
     """Run basic analysis with original functionality."""
-    # Use provided parameters or defaults
     ticker = ticker or TICKER
     period = period or PERIOD
     interval = interval or INTERVAL
     sma_window = sma_window or SMA_WINDOW
     
-    # load data from yfinance
+    # Fetch data
     close = get_numeric_close(ticker, period, interval)
     data = pd.DataFrame({"Close": close})
 
-    # get simple moving average , key indicator as part of requirements
+    # Calculate indicators
     sma_series = sma_sliding_window(data["Close"], sma_window)
     data[sma_series.name] = sma_series
     data["Daily_Return"] = daily_simple_returns(data["Close"])
 
-    # 3) Runs + summary
+    # Runs analysis
     runs, summary = find_up_down_runs(data["Close"])
 
-    # 4) Strategy: max profit
+    # Max profit
     profit = max_profit_multiple_transactions(data["Close"])
 
-    # 5) Print summary
+    # Console output
     print(f"\n=== {ticker} | {period} | {interval} ===")
     print(f"SMA window: {sma_window}")
     print("\nUp/Down Runs Summary:")
@@ -170,7 +236,7 @@ def run_basic_analysis(ticker=None, period=None, interval=None, sma_window=None)
           f"longest_streak: {summary['down']['longest_streak']}")
     print(f"\nMax Profit (multiple transactions): {profit:.2f}")
 
-    # 6) Plot
+    # Visualization
     plot_price_sma_and_runs(
         data,
         sma_series.name,
@@ -182,101 +248,22 @@ def run_basic_analysis(ticker=None, period=None, interval=None, sma_window=None)
     return data, runs
 
 
-def run_multiple_stocks():
-    """Run analysis for multiple stocks specified by user."""
-    print("=== Multiple Stock Analysis ===")
-    print("Enter stock symbols separated by commas (e.g., AAPL,MSFT,GOOGL)")
-    
-    stocks_input = input("Enter stock symbols: ").strip()
-    if not stocks_input:
-        print("No stocks entered. Using default: AAPL")
-        stocks = ["AAPL"]
-    else:
-        stocks = [s.strip().upper() for s in stocks_input.split(",")]
-    
-    print(f"Analyzing {len(stocks)} stocks: {', '.join(stocks)}")
-    
-    # Collect data for all stocks
-    stock_data_list = []
-    
-    for i, stock in enumerate(stocks):
-        try:
-            print(f"\n--- Processing {stock} ({i+1}/{len(stocks)}) ---")
-            
-            # Get data
-            close = get_numeric_close(stock, PERIOD, INTERVAL)
-            data = pd.DataFrame({"Close": close})
-            
-            # Calculate indicators
-            sma_series = sma_sliding_window(data["Close"], SMA_WINDOW)
-            data[sma_series.name] = sma_series
-            data["Daily_Return"] = daily_simple_returns(data["Close"])
-            
-            # Calculate runs and profit
-            runs, summary = find_up_down_runs(data["Close"])
-            profit = max_profit_multiple_transactions(data["Close"])
-            
-            # Store data for comparison plot
-            stock_data_list.append({
-                'ticker': stock,
-                'data': data,
-                'sma_col': sma_series.name,
-                'runs': runs,
-                'summary': summary,
-                'profit': profit
-            })
-            
-            # Print summary
-            print(f"Up runs: {summary['up']['num_runs']}, Down runs: {summary['down']['num_runs']}")
-            print(f"Max profit: {profit:.2f}")
-            
-        except Exception as e:
-            print(f"Error processing {stock}: {e}")
-            continue
-    
-    # Create comparison plot
-    if stock_data_list:
-        print(f"\n--- Creating comparison plot for {len(stock_data_list)} stocks ---")
-        plot_multiple_stocks_comparison(
-            stock_data_list, 
-            title=f"Stock Comparison: {', '.join([s['ticker'] for s in stock_data_list])}"
-        )
-    
-    print(f"\nCompleted analysis for {len(stock_data_list)} stocks.")
-
-
 def main():
     """Main function - all interactions through matplotlib interface."""
-    import sys
-    
     print("="*80)
     print("STOCK ANALYSIS SYSTEM - MATPLOTLIB INTERFACE")
     print("="*80)
     print()
     
-    # Check command line arguments
-    if len(sys.argv) > 1:
-        arg = sys.argv[1].lower()
-        if arg in ['multi', 'multiple', 'compare']:
-            print("Running multiple stock analysis...")
-            run_multiple_stocks()
-        elif arg in ['interactive', 'plot', 'controls']:
-            print("Opening interactive plot with controls...")
-            create_interactive_plot(TICKER, PERIOD, INTERVAL, SMA_WINDOW, print_results_func=print_analysis_results)
-        else:
-            # Treat as single stock ticker
-            print(f"Opening interactive plot for {arg.upper()}...")
-            create_interactive_plot(arg.upper(), PERIOD, INTERVAL, SMA_WINDOW, print_results_func=print_analysis_results)
-    else:
-        # Default to interactive plot
-        print("Opening interactive plot with all controls...")
-        print("Use the controls at the bottom to:")
-        print("• Select Add/Remove mode with radio buttons")
-        print("• Toggle individual indicators with checkboxes")
-        print("• Add/remove stocks with the text input and submit")
-        print("• Figure auto-resizes to fit all content")
-        print()
-        create_interactive_plot(TICKER, PERIOD, INTERVAL, SMA_WINDOW, print_results_func=print_analysis_results)
+    # Always run interactive plot (ignore any command-line arguments)
+    print("Opening interactive plot with all controls...")
+    print("Use the controls at the bottom to:")
+    print("• Select Add/Remove mode with radio buttons")
+    print("• Toggle individual indicators with checkboxes")
+    print("• Add/remove stocks with the text input and submit")
+    print("• Figure auto-resizes to fit all content")
+    print()
+    create_interactive_plot(TICKER, PERIOD, INTERVAL, SMA_WINDOW, print_results_func=print_analysis_results)
 
 if __name__ == "__main__":
     main()

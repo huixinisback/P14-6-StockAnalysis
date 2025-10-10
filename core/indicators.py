@@ -153,7 +153,7 @@ def exponential_moving_average(values: Union[pd.Series, List, np.ndarray],
         if not np.isnan(data[i]):
             ema_values[i] = alpha * data[i] + (1 - alpha) * ema_values[i-1]
         else:
-            ema_values[i] = ema_values[i-1]  # Carry forward last EMA
+            ema_values[i] = ema_values[i-1]  # Forward-fill on NaN
     
     return pd.Series(ema_values, index=index, name=f"EMA_{period or alpha}")
 
@@ -209,7 +209,7 @@ def relative_strength_index(values: Union[pd.Series, List, np.ndarray],
     
     # Calculate RSI using Wilder's smoothing: O(n) time complexity
     for i in range(period + 1, n):
-        change_idx = i - 1  # Index in price_changes array
+        change_idx = i - 1  # Map to price_changes array index
         
         # Update average gain and loss using Wilder's smoothing
         avg_gain = ((avg_gain * (period - 1)) + gains[change_idx]) / period
@@ -258,38 +258,35 @@ def bollinger_bands(values: Union[pd.Series, List, np.ndarray],
         nan_series = pd.Series([np.nan] * n, index=index)
         return nan_series, nan_series, nan_series
     
-    # Calculate middle band (SMA) - use original values to preserve index
+    # Calculate middle band (SMA), preserve datetime index if Series input
     if isinstance(values, pd.Series):
         middle_band = sma_sliding_window(values, period)
     else:
         middle_band = sma_sliding_window(data, period)
-        # Ensure it has the correct index
         middle_band.index = index
     
     # Initialize bands
     upper_band = np.full(n, np.nan, dtype=float)
     lower_band = np.full(n, np.nan, dtype=float)
     
-    # Calculate Bollinger Bands using sliding window for std dev: O(n) time
-    # Maintain running sum and sum of squares for efficient variance calculation
-    # Variance = (sum_of_squares / n) - (mean)^2
+    # Sliding window variance: Var = E[X²] - E[X]²
+    # Maintain running sums for O(n) calculation
     
-    # Calculate first window's sum and sum_of_squares
+    # Initialize first window
     window_sum = np.sum(data[:period])
     window_sum_sq = np.sum(data[:period] ** 2)
     
     if not np.isnan(window_sum):
         mean = window_sum / period
         variance = (window_sum_sq / period) - (mean ** 2)
-        std = np.sqrt(max(0, variance))  # Avoid negative due to float precision
+        std = np.sqrt(max(0, variance))  # Clamp to avoid negative from float error
         middle_val = middle_band.iloc[period - 1]
         if not np.isnan(middle_val):
             upper_band[period - 1] = middle_val + (std_dev * std)
             lower_band[period - 1] = middle_val - (std_dev * std)
     
-    # Sliding window: O(n) - remove oldest, add newest
+    # Slide window: remove oldest, add newest
     for i in range(period, n):
-        # Update running sums
         old_val = data[i - period]
         new_val = data[i]
         
@@ -341,7 +338,7 @@ def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     buy_prices = []
     sell_prices = []
 
-    # Start from index where SMA becomes valid (first non-NaN value)
+    # Find first valid SMA index
     start_idx = None
     for i in range(len(sma)):
         if not np.isnan(sma[i]):
@@ -351,7 +348,7 @@ def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     if start_idx is None or start_idx >= len(prices) - 1:
         return {'buy_indices': [], 'sell_indices': [], 'buy_prices': [], 'sell_prices': []}
 
-    # Iterate through prices starting from first valid SMA + 1
+    # Check for crossovers starting from first valid SMA + 1
     for i in range(start_idx + 1, len(prices)):
         if np.isnan(sma[i]) or np.isnan(sma[i-1]):
             continue
@@ -374,30 +371,85 @@ def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     }
 
 
-def max_profit_multiple_transactions(close: pd.Series) -> float:
+def max_profit_multiple_transactions(close: pd.Series, return_transactions: bool = False):
     """
     Calculate max profit from unlimited buy/sell transactions (greedy).
     
     Features:
         - Captures all upward price movements
         - Sums all positive day-to-day differences
+        - Optionally returns individual transactions
         - O(n) time, O(1) space
     
     Args:
         close: Closing prices
+        return_transactions: If True, returns (profit, transactions_list)
     
     Returns:
         float: Max profit (0.0 if <2 prices or decreasing)
+        OR tuple: (profit, transactions) if return_transactions=True
+            transactions is list of dicts with:
+                'buy_index', 'sell_index', 'buy_price', 'sell_price', 'profit'
     
     Example:
         [7,1,5,3,6,4] → (5-1) + (6-3) = 7
     """
     if len(close) < 2:
+        if return_transactions:
+            return 0.0, []
         return 0.0
     
     profit = 0.0
-    for i in range(1, len(close)):
-        if close.iloc[i] > close.iloc[i-1]:
-            profit += close.iloc[i] - close.iloc[i-1]
+    transactions = []
     
+    # Track buy position
+    buy_idx = None
+    buy_price = None
+    
+    for i in range(1, len(close)):
+        price_going_up = close.iloc[i] > close.iloc[i-1]
+        
+        if price_going_up:
+            # Start a buy if not already holding
+            if buy_idx is None:
+                buy_idx = i - 1
+                buy_price = close.iloc[i-1]
+        else:
+            # Price going down - sell if holding
+            if buy_idx is not None:
+                sell_idx = i - 1
+                sell_price = close.iloc[i-1]
+                trade_profit = sell_price - buy_price
+                profit += trade_profit
+                
+                if return_transactions:
+                    transactions.append({
+                        'buy_index': buy_idx,
+                        'sell_index': sell_idx,
+                        'buy_price': buy_price,
+                        'sell_price': sell_price,
+                        'profit': trade_profit
+                    })
+                
+                buy_idx = None
+                buy_price = None
+    
+    # If still holding at end, sell at last price
+    if buy_idx is not None:
+        sell_idx = len(close) - 1
+        sell_price = close.iloc[-1]
+        trade_profit = sell_price - buy_price
+        profit += trade_profit
+        
+        if return_transactions:
+            transactions.append({
+                'buy_index': buy_idx,
+                'sell_index': sell_idx,
+                'buy_price': buy_price,
+                'sell_price': sell_price,
+                'profit': trade_profit
+            })
+    
+    if return_transactions:
+        return profit, transactions
     return profit
