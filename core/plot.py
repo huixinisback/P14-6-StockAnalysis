@@ -16,13 +16,15 @@ fig = None
 ax = None
 current_data: Optional[pd.DataFrame] = None
 current_ticker: Optional[str] = None
+current_period: Optional[str] = None  # Period for data download (e.g., '3y')
+current_interval: Optional[str] = None  # Interval for data download (e.g., '1d')
+current_sma_window: int = 5  # SMA window for signals
 
 # ===================== Import from Submodules =====================
 
 # Basic static plots
 from .plot_basic import (
-    plot_price_sma_and_runs,
-    plot_multiple_stocks_comparison
+    plot_price_sma_and_runs
 )
 
 # Indicator functions
@@ -69,10 +71,12 @@ __all__ = [
     'ax',
     'current_data',
     'current_ticker',
+    'current_period',
+    'current_interval',
+    'current_sma_window',
     
     # Basic plots
     'plot_price_sma_and_runs',
-    'plot_multiple_stocks_comparison',
     
     # Indicator functions
     'calculate_all_indicators',

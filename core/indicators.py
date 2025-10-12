@@ -310,11 +310,12 @@ def bollinger_bands(values: Union[pd.Series, List, np.ndarray],
 
 def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     """
-    Generate buy/sell signals from SMA crossovers.
+    Generate buy/sell signals from SMA crossovers with position tracking.
     
     Features:
-        - BUY: Price crosses above SMA
-        - SELL: Price crosses below SMA
+        - BUY: Price crosses above SMA (only when not holding)
+        - SELL: Price crosses below SMA (only when holding)
+        - Enforces BUY → SELL → BUY → SELL sequence
         - Skips NaN values
         - Single pass O(n) algorithm
     
@@ -325,6 +326,7 @@ def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     Returns:
         dict: 'buy_indices', 'sell_indices', 'buy_prices', 'sell_prices'
               Empty lists if no signals or invalid input
+              Arrays are always paired: len(buy) == len(sell) or len(buy) == len(sell)+1
     
     Example:
         prices=[10,12,11,13,9], sma=[nan,nan,11.5,12,11]
@@ -348,20 +350,25 @@ def compute_buy_sell_signals(prices: np.ndarray, sma: np.ndarray) -> dict:
     if start_idx is None or start_idx >= len(prices) - 1:
         return {'buy_indices': [], 'sell_indices': [], 'buy_prices': [], 'sell_prices': []}
 
+    # Position tracking: 0 = no position (flat), 1 = holding (long)
+    position = 0
+    
     # Check for crossovers starting from first valid SMA + 1
     for i in range(start_idx + 1, len(prices)):
         if np.isnan(sma[i]) or np.isnan(sma[i-1]):
             continue
 
-        # Buy signal: price crosses above SMA
-        if prices[i] > sma[i] and prices[i-1] <= sma[i-1]:
+        # Buy signal: price crosses above SMA (only if not already holding)
+        if position == 0 and prices[i] > sma[i] and prices[i-1] <= sma[i-1]:
             buy_indices.append(i)
             buy_prices.append(float(prices[i]))
+            position = 1  # Now holding
 
-        # Sell signal: price crosses below SMA
-        elif prices[i] < sma[i] and prices[i-1] >= sma[i-1]:
+        # Sell signal: price crosses below SMA (only if holding)
+        elif position == 1 and prices[i] < sma[i] and prices[i-1] >= sma[i-1]:
             sell_indices.append(i)
             sell_prices.append(float(prices[i]))
+            position = 0  # Now flat
 
     return {
         'buy_indices': buy_indices,

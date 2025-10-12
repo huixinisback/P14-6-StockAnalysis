@@ -168,7 +168,7 @@ def add_stock(ticker):
     Add stock to plot and calculate all indicators.
     
     Features:
-        - Downloads 3y daily data
+        - Downloads data using same period/interval as initial stock
         - Calculates all indicators (SMA, EMA, RSI, BB, signals, runs, profit)
         - Plots price line
         - Re-applies active checkbox indicators
@@ -184,11 +184,16 @@ def add_stock(ticker):
         print(f"Stock {ticker} already plotted.")
         return
     try:
-        close = get_numeric_close(ticker, "3y", "1d")
+        # Use same period and interval as initial stock
+        period = plot.current_period or "3y"
+        interval = plot.current_interval or "1d"
+        sma_window = plot.current_sma_window or 5
+        
+        close = get_numeric_close(ticker, period, interval)
         data = pd.DataFrame({"Close": close})
         
-        # Calculate all indicators (default SMA window 20 for additional stocks)
-        calculate_all_indicators(data["Close"], ticker, sma_window=20)
+        # Calculate all indicators using same SMA window as initial stock
+        calculate_all_indicators(data["Close"], ticker, sma_window=sma_window)
         
         # Console output: max profit and signal counts
         if ticker in plot.indicators and "Max_Profit" in plot.indicators[ticker]:
@@ -492,6 +497,9 @@ def create_interactive_plot(ticker: str = "AAPL", period: str = "3y", interval: 
     close_prices = get_numeric_close(ticker, period, interval)
     plot.current_data = pd.DataFrame({"Close": close_prices})
     plot.current_ticker = ticker
+    plot.current_period = period
+    plot.current_interval = interval
+    plot.current_sma_window = sma_window
     
     # Calculate all indicators for initial stock
     calculate_all_indicators(close_prices, ticker, sma_window)
