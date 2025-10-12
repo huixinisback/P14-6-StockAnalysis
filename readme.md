@@ -2,9 +2,34 @@
 
 ## Setup
 
+### Option 1: Virtual Environment (Recommended)
+
+**Windows PowerShell:**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+*If activation is blocked by execution policy:*
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+**Linux/Mac:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Option 2: Direct Install (No Virtual Environment)
+
 ```bash
 pip install -r requirements.txt
 ```
+
+**Note:** Virtual environment keeps dependencies isolated from your system Python.
 
 ---
 
@@ -35,6 +60,7 @@ python run_tests.py bollinger
 python run_tests.py signals
 python run_tests.py profit
 python run_tests.py daily
+python run_tests.py timetest
 ```
 
 ### Individual Test File
@@ -51,6 +77,7 @@ python tests/test_signals.py run
 |---------|--------|
 | `python main.py` | Interactive plot (prompts for config) |
 | `python tests/run_tests.py all` | Run all tests |
+| `python tests/test_timetest.py` | Performance timing tests |
 
 ---
 
