@@ -18,32 +18,6 @@ python main.py
 - Opens matplotlib window with controls
 - Add/remove stocks, toggle indicators
 
-### Interactive Plot (Specific Ticker)
-```bash
-python main.py MSFT
-python main.py GOOGL
-```
-
-### Multiple Stock Comparison
-```bash
-python main.py multi
-```
-- Prompts for comma-separated tickers
-- Creates comparison plot
-
----
-
-## Streamlit Web App
-
-```bash
-streamlit run app.py
-```
-- Opens browser interface at `http://localhost:8501`
-- Interactive controls in sidebar
-- Plotly charts with zoom/pan
-
----
-
 ## Testing
 
 ### Run All Tests
@@ -76,9 +50,6 @@ python tests/test_signals.py run
 | Command | Action |
 |---------|--------|
 | `python main.py` | Interactive plot (prompts for config) |
-| `python main.py AAPL` | Interactive plot for AAPL |
-| `python main.py multi` | Multiple stock comparison |
-| `streamlit run app.py` | Web dashboard |
 | `python tests/run_tests.py all` | Run all tests |
 
 ---
