@@ -22,11 +22,6 @@ current_sma_window: int = 5  # SMA window for signals
 
 # ===================== Import from Submodules =====================
 
-# Basic static plots
-from .plot_basic import (
-    plot_price_sma_and_runs
-)
-
 # Indicator functions
 from .plot_indicators import (
     calculate_all_indicators,
@@ -74,9 +69,6 @@ __all__ = [
     'current_period',
     'current_interval',
     'current_sma_window',
-    
-    # Basic plots
-    'plot_price_sma_and_runs',
     
     # Indicator functions
     'calculate_all_indicators',

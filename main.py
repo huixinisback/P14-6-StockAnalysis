@@ -2,10 +2,7 @@
 from core.data import get_numeric_close
 from core.indicators import sma_sliding_window, daily_simple_returns, max_profit_multiple_transactions
 from core.runs import find_up_down_runs
-from core.plot import (
-    plot_price_sma_and_runs,
-    create_interactive_plot
-)
+from core.plot import create_interactive_plot
 
 import pandas as pd # using pandas for data manipulation (DataFrame, Series, etc.)
 from typing import Dict
@@ -201,51 +198,6 @@ except ValueError:
 
 print(f"\nConfiguration: {TICKER} | {PERIOD} | {INTERVAL} | SMA Window: {SMA_WINDOW}")
 print("="*60 + "\n")
-
-def run_basic_analysis(ticker=None, period=None, interval=None, sma_window=None):
-    """Run basic analysis with original functionality."""
-    ticker = ticker or TICKER
-    period = period or PERIOD
-    interval = interval or INTERVAL
-    sma_window = sma_window or SMA_WINDOW
-    
-    # Fetch data
-    close = get_numeric_close(ticker, period, interval)
-    data = pd.DataFrame({"Close": close})
-
-    # Calculate indicators
-    sma_series = sma_sliding_window(data["Close"], sma_window)
-    data[sma_series.name] = sma_series
-    data["Daily_Return"] = daily_simple_returns(data["Close"])
-
-    # Runs analysis
-    runs, summary = find_up_down_runs(data["Close"])
-
-    # Max profit
-    profit = max_profit_multiple_transactions(data["Close"])
-
-    # Console output
-    print(f"\n=== {ticker} | {period} | {interval} ===")
-    print(f"SMA window: {sma_window}")
-    print("\nUp/Down Runs Summary:")
-    print(f"  Up   -> num_runs: {summary['up']['num_runs']}, "
-          f"total_days: {summary['up']['total_days_in_runs']}, "
-          f"longest_streak: {summary['up']['longest_streak']}")
-    print(f"  Down -> num_runs: {summary['down']['num_runs']}, "
-          f"total_days: {summary['down']['total_days_in_runs']}, "
-          f"longest_streak: {summary['down']['longest_streak']}")
-    print(f"\nMax Profit (multiple transactions): {profit:.2f}")
-
-    # Visualization
-    plot_price_sma_and_runs(
-        data,
-        sma_series.name,
-        runs,
-        title=f"{ticker} Close vs. {sma_series.name} (shaded up/down runs)", 
-        inName = ticker
-    )
-    
-    return data, runs
 
 
 def main():
