@@ -1,10 +1,7 @@
 # run: python main.py
-from core.data import get_numeric_close
-from core.indicators import sma_sliding_window, daily_simple_returns, max_profit_multiple_transactions
-from core.runs import find_up_down_runs
 from core.plot import create_interactive_plot
 
-import pandas as pd # using pandas for data manipulation (DataFrame, Series, etc.)
+import pandas as pd
 from typing import Dict
 
 
