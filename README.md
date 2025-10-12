@@ -2,9 +2,33 @@
 
 ## Setup
 
+### Option 1: Virtual Environment (Recommended)
+
+**Windows PowerShell:**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+*If activation is blocked by execution policy:*
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+**Linux/Mac:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Option 2: Direct Install (No Virtual Environment)
+
 ```bash
 pip install -r requirements.txt
 ```
+Note: Virtual environment keeps dependencies isolated from your system Python.
 
 ---
 
