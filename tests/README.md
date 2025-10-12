@@ -56,16 +56,8 @@ python test_sma.py run
 
 ## Test Cases Per Indicator
 
-Each indicator has exactly 3 test cases:
+Each indicator has types of 3 test cases:
 
 1. **Basic Test** - Tests core functionality with known values
 2. **Edge Cases** - Tests boundary conditions and error handling
 3. **API Comparison** - Compares results with pandas implementations
-
-## Expected Results
-
-All tests should pass, confirming:
-- ✅ Mathematical accuracy
-- ✅ Edge case handling
-- ✅ API compatibility
-- ✅ O(n) performance
